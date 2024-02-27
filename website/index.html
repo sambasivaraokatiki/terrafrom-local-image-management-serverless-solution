@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Management</title>
+</head>
+<body>
+    <h1>Image Management</h1>
+
+    <!-- Upload Form -->
+    <h2>Upload Image</h2>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" name="file">
+        <button type="submit">Upload</button>
+    </form>
+
+    <!-- Image List -->
+    <h2>Image List</h2>
+    <ul id="imageList"></ul>
+
+    <!-- Search Form -->
+    <h2>Search Images</h2>
+    <form id="searchForm">
+        <select id="searchOption" name="search_option">
+            <option value="name">Search by Name</option>
+            <option value="type">Search by Type</option>
+        </select>
+        <input type="text" id="searchTerm" name="search_term" placeholder="Enter search term">
+        <button type="submit">Search</button>
+    </form>
+
+    <!-- View Image -->
+    <h2>View Image</h2>
+    <div id="imageView"></div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            // Handle upload form submission
+            $('#uploadForm').submit(function (event) {
+                event.preventDefault();
+                var formData = new FormData(this);
+                
+                $.ajax({
+                    url: '/upload',
+                    type: 'POST',
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    success: function (data) {
+                        alert(data);
+                        // Refresh image list after upload
+                        $('#searchForm').submit();
+                    },
+                    error: function (xhr, status, error) {
+                        alert('Error uploading image: ' + error);
+                    }
+                });
+            });
+
+            // Load images on page load
+            $.get('/list', function (data) {
+                displayImages(data);
+            });
+
+            // Handle search form submission
+            $('#searchForm').submit(function (event) {
+                event.preventDefault();
+                var searchOption = $('#searchOption').val();
+                var searchTerm = $('#searchTerm').val();
+
+                $.post('/search', { search_option: searchOption, search_term: searchTerm }, function (data) {
+                    displayImages(data);
+                });
+            });
+
+            // Function to display images
+            function displayImages(images) {
+                var imageList = $('#imageList');
+                imageList.empty();
+                images.forEach(function (image) {
+                    imageList.append('<li>' + image + ' <a href="#" class="view">View</a> <a href="#" class="download">Download</a> <a href="#" class="delete">Delete</a></li>');
+                });
+            }
+
+            // Handle click on View link
+            $('#imageList').on('click', '.view', function (event) {
+                event.preventDefault();
+                var imageName = $(this).parent().text().trim();
+                $('#imageView').html('<img src="/view/' + imageName + '" alt="' + imageName + '">');
+            });
+
+            // Handle click on Download link
+            $('#imageList').on('click', '.download', function (event) {
+                event.preventDefault();
+                var imageName = $(this).parent().text().trim();
+                window.location.href = '/download/' + imageName;
+            });
+
+            // Handle click on Delete link
+            $('#imageList').on('click', '.delete', function (event) {
+                event.preventDefault();
+                if (confirm('Are you sure you want to delete this image?')) {
+                    var imageName = $(this).parent().text().trim();
+                    $.ajax({
+                        url: '/delete/' + imageName,
+                        type: 'DELETE',
+                        success: function (data) {
+                            alert(data.message);
+                            // Refresh image list after deletion
+                            $('#searchForm').submit();
+                        },
+                        error: function (xhr, status, error) {
+                            alert('Error deleting image: ' + error);
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
