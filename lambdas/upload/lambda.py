@@ -1,20 +1,13 @@
-import typing
 import os
 import cgi,io, base64, boto3
 import uuid
 
-if typing.TYPE_CHECKING:
-    from mypy_boto3_s3 import S3Client
-    from mypy_boto3_dynamodb import DynamoDBClient
+endpoint_url = "https://localhost.localstack.cloud:4566"
 
-endpoint_url = None
-if os.getenv("STAGE") == "local":
-    endpoint_url = "https://localhost.localstack.cloud:4566"
+s3 = boto3.client("s3", endpoint_url=endpoint_url)
+dynamodb= boto3.client("dynamodb", endpoint_url=endpoint_url)
 
-s3: "S3Client" = boto3.client("s3", endpoint_url=endpoint_url)
-dynamodb: "DynamoDBClient"=boto3.client("dynamodb", endpoint_url=endpoint_url)
-
-s3_bucket_name="montycloud_l2_storage"
+s3_bucket_name="montycloud-l2-storage"
 dynamodb_table_name="montycloud_l2_file_metadata_table"
 
 def saveToDynamoDB(fileDetails,file_name_in_s3):
@@ -29,7 +22,7 @@ def saveToDynamoDB(fileDetails,file_name_in_s3):
         TableName=table_name,
         Item=data
     )
-    print("Item saved successfully:", response)
+    print("Item saved successfully")
     return None
     
 def metaDataExtractor(filename):
@@ -65,6 +58,7 @@ def save_file(file_item, save_directory):
 def parseMultiPartFormData(fp,content_type):
     form = cgi.FieldStorage(fp=fp, environ={'REQUEST_METHOD': 'POST', 'CONTENT_TYPE': content_type})
     save_directory = '/tmp'  # Use Lambda's temporary directory
+    print(form.keys())
     for field in form.keys():
         field_item = form[field]
         if isinstance(field_item, cgi.FieldStorage):
@@ -75,27 +69,37 @@ def parseMultiPartFormData(fp,content_type):
     
 def handler(event, context):
     try:
-        # Get the multipart form data from the event
-        print(event)
         body = event['body']
-        fp = io.BytesIO(base64.b64decode(body))
-        content_type_header = event['headers']['Content-Type']
-        content_type, params = cgi.parse_header(content_type_header)
-        if 'multipart/form-data' == content_type:
-            if parseMultiPartFormData(fp,content_type_header):
-                return {
-                    'statusCode': 200,
-                    'body': f"File saved to S3"
-                }
+        headers = event['headers']
+        lower_case_keys = {k.lower(): v for k, v in headers.items()}
+        
+        # Check if 'content-type' header exists in lower_case_keys
+        if 'content-type' in lower_case_keys:
+            content_type_header = lower_case_keys['content-type']
+            content_type, params = cgi.parse_header(content_type_header)
+            
+            if 'multipart/form-data' == content_type:
+                fp = io.BytesIO(base64.b64decode(body))
+                if parseMultiPartFormData(fp, content_type_header):
+                    print("parsed and saved")
+                    return {
+                        'statusCode': 200,
+                        'body': "File saved to S3"
+                    }
+                else:
+                    return {
+                        'statusCode': 400,
+                        'body': 'Error: No file uploaded.'
+                    }
             else:
                 return {
                     'statusCode': 400,
-                    'body': 'Error: No file uploaded.'
+                    'body': 'Error: Content type is not multipart/form-data.'
                 }
         else:
             return {
                 'statusCode': 400,
-                'body': 'Error: Content type is not multipart/form-data.'
+                'body': 'Error: Missing content-type header.'
             }
     except Exception as e:
         return {

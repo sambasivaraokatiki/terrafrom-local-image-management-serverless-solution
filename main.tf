@@ -1,12 +1,3 @@
-terraform {
- required_providers {
-   aws = {
-     source = "hashicorp/aws"
-     version = "5.38.0"
-   }
- }
-}
-
 resource "aws_api_gateway_rest_api" "api" {
   name = "MontyCloud_L2_API"
   binary_media_types = [ "multipart/form-data", "image/*"]
@@ -59,19 +50,31 @@ resource "aws_api_gateway_integration" "list_search_integration" {
 resource "aws_api_gateway_resource" "view_download_resource" {
   rest_api_id = aws_api_gateway_rest_api.api.id
   parent_id   = aws_api_gateway_rest_api.api.root_resource_id
-  path_part   = "view-download/{operation+}/{imageName+}"
+  path_part   = "view-download"
+}
+
+resource "aws_api_gateway_resource" "view_download_operation_resource" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.view_download_resource.id
+  path_part   = "{operation}"
+}
+
+resource "aws_api_gateway_resource" "view_download_operation_image_resource" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.view_download_operation_resource.id
+  path_part   = "{imageName}"
 }
 
 resource "aws_api_gateway_method" "view_download_method" {
   rest_api_id   = aws_api_gateway_rest_api.api.id
-  resource_id   = aws_api_gateway_resource.view_download_resource.id
+  resource_id   = aws_api_gateway_resource.view_download_operation_image_resource.id
   http_method   = "GET"
   authorization = "NONE"
 }
 
 resource "aws_api_gateway_integration" "view_download_integration" {
   rest_api_id             = aws_api_gateway_rest_api.api.id
-  resource_id             = aws_api_gateway_resource.view_download_resource.id
+  resource_id             = aws_api_gateway_resource.view_download_operation_image_resource.id
   http_method             = aws_api_gateway_method.view_download_method.http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
@@ -81,38 +84,36 @@ resource "aws_api_gateway_integration" "view_download_integration" {
 resource "aws_api_gateway_resource" "delete_resource" {
   rest_api_id = aws_api_gateway_rest_api.api.id
   parent_id   = aws_api_gateway_rest_api.api.root_resource_id
-  path_part   = "delete/{imageName+}"
+  path_part   = "delete"
+}
+
+resource "aws_api_gateway_resource" "delete_image_resource" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.delete_resource.id
+  path_part   = "{imageName+}"
 }
 
 resource "aws_api_gateway_method" "delete_method" {
   rest_api_id   = aws_api_gateway_rest_api.api.id
-  resource_id   = aws_api_gateway_resource.delete_resource.id
+  resource_id   = aws_api_gateway_resource.delete_image_resource.id
   http_method   = "GET"
   authorization = "NONE"
 }
 
 resource "aws_api_gateway_integration" "delete_integration" {
   rest_api_id             = aws_api_gateway_rest_api.api.id
-  resource_id             = aws_api_gateway_resource.delete_resource.id
+  resource_id             = aws_api_gateway_resource.delete_image_resource.id
   http_method             = aws_api_gateway_method.delete_method.http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
   uri                     = aws_lambda_function.deleteImageLambdaFunction.invoke_arn
 }
 
-resource "aws_api_gateway_deployment" "deployment" {
-  rest_api_id = aws_api_gateway_rest_api.api.id
-  stage_name  = "dev"
-
-  triggers = {
-    redeploy = sha1(jsonencode(aws_api_gateway_integration.upload_integration))
-  }
-}
-
 resource "aws_lambda_layer_version" "lambda_layer" {
   layer_name = "lambda_layer"
   compatible_runtimes = ["python3.9"]
   filename = "lambdas/layer/layer.zip"
+  source_code_hash = filebase64sha256("lambdas/layer/layer.zip")
 }
 
 resource "aws_lambda_function" "uploadImageLambdaFunction" {
@@ -123,6 +124,8 @@ resource "aws_lambda_function" "uploadImageLambdaFunction" {
   source_code_hash = filebase64sha256("lambdas/upload/lambda.zip")
   runtime          = "python3.9"
   layers = [aws_lambda_layer_version.lambda_layer.arn]
+  timeout          = 60
+  memory_size      = 512
 }
 
 resource "aws_lambda_function" "listSearchImageLambdaFunction" {
@@ -133,6 +136,8 @@ resource "aws_lambda_function" "listSearchImageLambdaFunction" {
   source_code_hash = filebase64sha256("lambdas/list-search/lambda.zip")
   runtime          = "python3.9"
   layers = [aws_lambda_layer_version.lambda_layer.arn]
+  timeout          = 60
+  memory_size      = 512
 }
 
 resource "aws_lambda_function" "viewDownloadImageLambdaFunction" {
@@ -143,6 +148,8 @@ resource "aws_lambda_function" "viewDownloadImageLambdaFunction" {
   source_code_hash = filebase64sha256("lambdas/view-download/lambda.zip")
   runtime          = "python3.9"
   layers = [aws_lambda_layer_version.lambda_layer.arn]
+  timeout          = 60
+  memory_size      = 512
 }
 
 resource "aws_lambda_function" "deleteImageLambdaFunction" {
@@ -153,6 +160,8 @@ resource "aws_lambda_function" "deleteImageLambdaFunction" {
   source_code_hash = filebase64sha256("lambdas/delete/lambda.zip")
   runtime          = "python3.9"
   layers = [aws_lambda_layer_version.lambda_layer.arn]
+  timeout          = 60
+  memory_size      = 512
 }
 
 resource "aws_lambda_permission" "apigw_upload_image_lambda" {
@@ -235,6 +244,15 @@ resource "aws_iam_role" "role" {
         },
       ]
     })
+  }
+}
+
+resource "aws_api_gateway_deployment" "deployment" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  stage_name  = "dev"
+
+  triggers = {
+    redeploy = sha1(jsonencode(aws_api_gateway_integration.upload_integration))
   }
 }
 

@@ -77,38 +77,87 @@
             });
 
             // Function to display images
-            function displayImages(images) {
+            function displayImages(imageData) {
                 var imageList = $('#imageList');
                 imageList.empty();
-                images.forEach(function (image) {
-                    imageList.append('<li>' + image + ' <a href="#" class="view">View</a> <a href="#" class="download">Download</a> <a href="#" class="delete">Delete</a></li>');
-                });
+                for (var uuid in imageData) {
+                    if (imageData.hasOwnProperty(uuid)) {
+                        var imageName = imageData[uuid];
+                        imageList.append('<li>' + imageName + ' <a href="#" class="view" data-uuid="' + uuid + '">View</a> <a href="#" class="download" data-uuid="' + uuid + '">Download</a> <a href="#" class="delete" data-uuid="' + uuid + '">Delete</a></li>');
+                    }
+                }
             }
 
             // Handle click on View link
             $('#imageList').on('click', '.view', function (event) {
                 event.preventDefault();
-                var imageName = $(this).parent().text().trim();
-                $('#imageView').html('<img src="/view/' + imageName + '" alt="' + imageName + '">');
+                var uuid = $(this).data('uuid'); // Get the UUID from the data attribute
+                var viewUrl = '/view/' + uuid;
+                console.log(viewUrl);
+                // AJAX request to fetch image data
+                $.get(viewUrl, function(response) {
+                    if (response && response.imageDataURI) {
+                        console.log(response)
+                        $('#imageView').html('<img src="' + response.imageDataURI + '" alt="Image">');
+                    } else {
+                        console.error('Error: Invalid image data in response');
+                    }
+                }).fail(function(xhr, status, error) {
+                    console.error('Error viewing image:', error);
+                });
             });
 
             // Handle click on Download link
             $('#imageList').on('click', '.download', function (event) {
                 event.preventDefault();
-                var imageName = $(this).parent().text().trim();
-                window.location.href = '/download/' + imageName;
+                var uuid = $(this).data('uuid'); // Get the UUID from the data attribute
+                var downloadUrl = '/download/' + uuid;
+
+                $.get(downloadUrl, function (data) {
+                    // Check if the request is successful
+                    if (data.statusCode === 200) {
+                        // Create a blob from the image data
+                        const blob = new Blob([data.body], { type: data.headers['Content-Type'] });
+
+                        // Create a temporary anchor element
+                        const a = document.createElement('a');
+                        const url = window.URL.createObjectURL(blob);
+
+                        // Set download attribute and href
+                        a.href = url;
+                        a.download = uuid;
+
+                        // Append anchor to the document and trigger click event
+                        document.body.appendChild(a);
+                        a.click();
+
+                        // Cleanup
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+
+                        a.addEventListener('click', function() {
+                            alert("Image downloaded to 'downloads' folder");
+                        });
+                    } else {
+                        console.error('Error downloading image');
+                    }
+                });
+                
             });
 
             // Handle click on Delete link
             $('#imageList').on('click', '.delete', function (event) {
                 event.preventDefault();
+                var uuid = $(this).data('uuid'); // Get the UUID from the data attribute
+                var deleteUrl = '/delete/' + uuid;
+
                 if (confirm('Are you sure you want to delete this image?')) {
-                    var imageName = $(this).parent().text().trim();
+                    // AJAX request to delete image
                     $.ajax({
-                        url: '/delete/' + imageName,
-                        type: 'DELETE',
+                        url: deleteUrl,
+                        type: 'GET',
                         success: function (data) {
-                            alert(data.message);
+                            alert(data);
                             // Refresh image list after deletion
                             $('#searchForm').submit();
                         },

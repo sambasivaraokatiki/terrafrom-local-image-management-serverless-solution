@@ -1,0 +1,15 @@
+terraform.tfstate
+
+terraform.tfstate.backup
+
+.terraform
+
+website/node-modules
+
+package-lock.json
+
+website/downloads/*
+
+website/images/*
+
+.terraform.lock.hcl

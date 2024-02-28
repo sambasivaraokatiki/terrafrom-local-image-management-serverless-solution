@@ -1,32 +1,24 @@
-import typing
-import os
 import boto3, json
 
-if typing.TYPE_CHECKING:
-    from mypy_boto3_s3 import S3Client
-    from mypy_boto3_dynamodb import DynamoDBClient
+endpoint_url = "https://localhost.localstack.cloud:4566"
 
-endpoint_url = None
-if os.getenv("STAGE") == "local":
-    endpoint_url = "https://localhost.localstack.cloud:4566"
+s3 = boto3.client("s3", endpoint_url=endpoint_url)
+dynamodb= boto3.client("dynamodb", endpoint_url=endpoint_url)
 
-s3: "S3Client" = boto3.client("s3", endpoint_url=endpoint_url)
-dynamodb: "DynamoDBClient"=boto3.client("dynamodb", endpoint_url=endpoint_url)
-
-s3_bucket_name="montycloud_l2_storage"
+s3_bucket_name="montycloud-l2-storage"
 dynamodb_table_name="montycloud_l2_file_metadata_table"
 
 def searchDynamoDB(searchAttributeName=None,searchAttributeValue=None):
     try:
         if searchAttributeName is None or searchAttributeValue is None:
             response = dynamodb.scan(
-                TableName='montycloud_l2'
+                TableName='montycloud_l2_file_metadata_table'
             )
             items = response['Items']
             items={i['id']['S']:i['originalName']['S']+'.'+i['type']['S'] for i in items}
             return items
         response = dynamodb.scan(
-            TableName='montycloud_l2',
+            TableName='montycloud_l2_file_metadata_table',
             FilterExpression="contains (#attr, :val)",
             ExpressionAttributeNames={"#attr": searchAttributeName},
             ExpressionAttributeValues={":val": {"S": searchAttributeValue.lower()}}
@@ -57,7 +49,7 @@ def listImages(attribute):
 def handler(event, context):
     print(event)
     body=event['body']
-    if body != None:
+    if body != None and body!='':
         body=json.loads(body)
         if 'name' in body and 'value' in body:
             return {
