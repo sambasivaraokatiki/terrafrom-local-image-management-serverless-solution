@@ -2,6 +2,7 @@ import os
 import cgi,io, base64, boto3
 import uuid
 
+
 endpoint_url = "https://localhost.localstack.cloud:4566"
 
 s3 = boto3.client("s3", endpoint_url=endpoint_url)
@@ -58,7 +59,6 @@ def save_file(file_item, save_directory):
 def parseMultiPartFormData(fp,content_type):
     form = cgi.FieldStorage(fp=fp, environ={'REQUEST_METHOD': 'POST', 'CONTENT_TYPE': content_type})
     save_directory = '/tmp'  # Use Lambda's temporary directory
-    print(form.keys())
     for field in form.keys():
         field_item = form[field]
         if isinstance(field_item, cgi.FieldStorage):
@@ -70,36 +70,26 @@ def parseMultiPartFormData(fp,content_type):
 def handler(event, context):
     try:
         body = event['body']
-        headers = event['headers']
+        headers=event['headers']
         lower_case_keys = {k.lower(): v for k, v in headers.items()}
-        
-        # Check if 'content-type' header exists in lower_case_keys
-        if 'content-type' in lower_case_keys:
-            content_type_header = lower_case_keys['content-type']
-            content_type, params = cgi.parse_header(content_type_header)
-            
-            if 'multipart/form-data' == content_type:
-                fp = io.BytesIO(base64.b64decode(body))
-                if parseMultiPartFormData(fp, content_type_header):
-                    print("parsed and saved")
-                    return {
-                        'statusCode': 200,
-                        'body': "File saved to S3"
-                    }
-                else:
-                    return {
-                        'statusCode': 400,
-                        'body': 'Error: No file uploaded.'
-                    }
+        fp = io.BytesIO(base64.b64decode(body))
+        content_type_header = lower_case_keys['content-type']
+        content_type, params = cgi.parse_header(content_type_header)
+        if 'multipart/form-data' == content_type:
+            if parseMultiPartFormData(fp,content_type_header):
+                return {
+                    'statusCode': 200,
+                    'body': f"File saved to S3"
+                }
             else:
                 return {
                     'statusCode': 400,
-                    'body': 'Error: Content type is not multipart/form-data.'
+                    'body': 'Error: No file uploaded.'
                 }
         else:
             return {
                 'statusCode': 400,
-                'body': 'Error: Missing content-type header.'
+                'body': 'Error: Content type is not multipart/form-data.'
             }
     except Exception as e:
         return {

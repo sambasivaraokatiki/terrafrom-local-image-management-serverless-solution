@@ -4,12 +4,14 @@ terraform.tfstate.backup
 
 .terraform
 
-website/node-modules
+website/node_modules
 
 package-lock.json
 
-website/downloads/*
+website/downloads
 
-website/images/*
+website/images
+
+website/uploads
 
 .terraform.lock.hcl
