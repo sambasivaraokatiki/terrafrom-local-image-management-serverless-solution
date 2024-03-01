@@ -126,6 +126,14 @@ resource "aws_lambda_function" "uploadImageLambdaFunction" {
   layers = [aws_lambda_layer_version.lambda_layer.arn]
   timeout          = 60
   memory_size      = 512
+
+  environment {
+    variables = {
+      image_bucket_name    = aws_s3_bucket.s3_bucket.bucket
+      image_metadata_table_name = aws_dynamodb_table.my_table.name
+      localstack_endpoint = "https://localhost.localstack.cloud:4566"
+    }
+  }
 }
 
 resource "aws_lambda_function" "listSearchImageLambdaFunction" {
@@ -138,6 +146,14 @@ resource "aws_lambda_function" "listSearchImageLambdaFunction" {
   layers = [aws_lambda_layer_version.lambda_layer.arn]
   timeout          = 60
   memory_size      = 512
+
+  environment {
+    variables = {
+      image_bucket_name    = aws_s3_bucket.s3_bucket.bucket
+      image_metadata_table_name = aws_dynamodb_table.my_table.name
+      localstack_endpoint = "https://localhost.localstack.cloud:4566"
+    }
+  }
 }
 
 resource "aws_lambda_function" "viewDownloadImageLambdaFunction" {
@@ -150,6 +166,14 @@ resource "aws_lambda_function" "viewDownloadImageLambdaFunction" {
   layers = [aws_lambda_layer_version.lambda_layer.arn]
   timeout          = 60
   memory_size      = 512
+
+  environment {
+    variables = {
+      image_bucket_name    = aws_s3_bucket.s3_bucket.bucket
+      image_metadata_table_name = aws_dynamodb_table.my_table.name
+      localstack_endpoint = "https://localhost.localstack.cloud:4566"
+    }
+  }
 }
 
 resource "aws_lambda_function" "deleteImageLambdaFunction" {
@@ -162,6 +186,14 @@ resource "aws_lambda_function" "deleteImageLambdaFunction" {
   layers = [aws_lambda_layer_version.lambda_layer.arn]
   timeout          = 60
   memory_size      = 512
+
+  environment {
+    variables = {
+      image_bucket_name    = aws_s3_bucket.s3_bucket.bucket
+      image_metadata_table_name = aws_dynamodb_table.my_table.name
+      localstack_endpoint = "https://localhost.localstack.cloud:4566"
+    }
+  }
 }
 
 resource "aws_lambda_permission" "apigw_upload_image_lambda" {
@@ -257,7 +289,7 @@ resource "aws_api_gateway_deployment" "deployment" {
 }
 
 resource "aws_dynamodb_table" "my_table" {
-  name           = "montycloud_l2_file_metadata_table"
+  name           = "image_metadata_table"
   billing_mode   = "PAY_PER_REQUEST"
   hash_key       = "id"
   attribute {
@@ -267,7 +299,7 @@ resource "aws_dynamodb_table" "my_table" {
 }
 
 resource "aws_s3_bucket" "s3_bucket" {
-  bucket = "montycloud-l2-storage"
+  bucket = "image-storage"
 }
 
 output "api_endpoint" {

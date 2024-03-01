@@ -1,12 +1,11 @@
-import boto3, json
+import boto3, json, os
 
-endpoint_url = "https://localhost.localstack.cloud:4566"
+endpoint_url = os.environ.get('localstack_endpoint')
+s3_bucket_name= os.environ.get('image_bucket_name')
+dynamodb_table_name= os.environ.get('image_metadata_table_name')
 
 s3 = boto3.client("s3", endpoint_url=endpoint_url)
 dynamodb= boto3.client("dynamodb", endpoint_url=endpoint_url)
-
-s3_bucket_name="montycloud-l2-storage"
-dynamodb_table_name="montycloud_l2_file_metadata_table"
 
 def handler(event,context):
     try:
